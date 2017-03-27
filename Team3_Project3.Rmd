@@ -1,0 +1,1421 @@
+---
+title: "Project - Data Science Skills"
+author: "Ambra, Dilip, Kyle, Pavan, Raghu, Tom, Duubar"
+date: "March 26, 2017"
+output:
+  prettydoc::html_pretty:
+    highlight: github
+    theme: leonids
+    toc: yes
+  pdf_document: default
+  html_document: default
+subtitle: CUNY MSDA DATA 607 Project 3
+---
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, cache=FALSE, results='hide', message=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+
+# Introduction  
+
+This challenging project for DATA607 focuses on the team building, collaboration and leadership required to succeed in the field of data science and analytics. We are instructed to work closely in groups toward the task of answering a specific question: **"Which are the most valued data science skills?"** Our team quickly established a rapport and communications channel on #slack then set to the task with gusto and shared responsibility. We chose as our leader Duubar Villalobos Jimenez, and under his coordination we assigned a variety of tasks and deadlines to accomplish our goal. Of course, data is required. We chose to collect Data Science salary data from the website Paysa, which lists a wide variety of tech postings, the skills associated with each posting and several salary components. Details follow, but our analysis shows the Machine Learning is the most-requested skill in our sample of 390 job listings, while the highest-valued skill, measured by mean compensation, was Strategy - reflecting the higher pay for management, leadership and vision in this rapidly evolving profession.
+
+
+# Team members
+
+Name                         | Team              | Email
+-----------------------------|-------------------|--------------------------------------
+Pavan Akula                  | Team 3            | akulapavan@hotmail.com
+Ambra  Baboni Alexander      | Team 3            | ambra8due@hotmail.com
+Thomas Detzel                | Team 3            | tomdetz@gmail.com
+Dilip  Ganesan               | Team 3            | dilipgan@gmail.com
+Kyle   Gilde                 | Team 3            | kylegilde@gmail.com
+Raghunathan Rammnath         | Team 3            | raghu74us@gmail.com
+Duubar Villalobos Jimenez    | Team 3            | mydvtech@gmail.com
+
+# Our Process
+
+## Workspace preparation
+
+Create vector with all needed libraries.
+
+```{r library_definitions, echo=TRUE, warning=FALSE, error=FALSE, cache=FALSE, results='hide', message=FALSE}
+
+ load_packages <- c(
+                    "knitr",
+                    "RMySQL",
+                    "tidyverse",
+                    "tidyr",
+                    "dplyr",
+                    "stringr",
+                    "plotly",
+                    "htmlTable",
+                    "stringr",
+                    "prettydoc",
+                    "shinythemes",
+                    "treemap",
+                    "data.tree",
+                    "janitor",
+                    "ggplot2",
+                    "ggthemes",
+                    "stats"
+                  )
+
+```
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, cache=FALSE, results='hide', message=FALSE}
+# Check to see if we need a library in order to to install it
+# new.pkg <- load_packages[!(load_packages %in% installed.packages()[, "Package"])]
+# if (length(new.pkg)) install.packages(new.pkg, dependencies = TRUE, warn.conflicts = FALSE)
+
+# Library
+sapply(load_packages, library, character.only = TRUE, quietly = TRUE)
+# CODE SOURCE DOCUMENTATION: https://gist.github.com/stevenworthington/3178163
+
+```
+
+
+
+```{r plotly_setup, echo=FALSE,  warning=FALSE, error=FALSE, cache=FALSE, results='hide', message=FALSE}
+plotly("mydvtech", "8hb5VQbM9dbhXuHS5IGl")
+
+Sys.setenv("plotly_username"="data607g3")
+Sys.setenv("plotly_api_key"="dDZhymyplVxhzUuXv2MX")
+```
+
+## Organization and Communication
+
+As a team, we had a brainstorm meetup in which some roles and lines of work were defined. Following are the most important agreements.
+
+### Github
+
+We agreed to create a **GitHub** repository, **D607-Group-Project**. All team members had access and were able to post and read from a single repository location.
+
+https://github.com/kylegilde/D607-Group-Project
+
+### Slack
+
+We agreed to use **Slack** as our Team Collaboration platform. From Slack we were able to perform live meetups with "join.me", which allows screen sharing and presentations to update and explore specific topics and problems. For example, we were able to look at code and discuss problems and refinements.
+
+https://cuny-data607.slack.com
+
+### Google Docs
+
+We created a spreadsheet in **google docs** to list deadlines and responsibilities.
+
+https://docs.google.com/spreadsheets/d/1QNhmk6ebuFKYiyqrWJewhzT-PnrYgntZ09MC3yqpcx8/edit#gid=1903046315
+
+## Data
+
+After some preliminary research and analysis, we decided to collect data from current data science job postings. We identified several web sites that offered raw information on position, location, company, salary and skills. In the end selected **Paysa** (https://www.paysa.com) because it offered the most comprehesive set of variables.
+
+## Limitations 
+
+Please note that this data has been collected from a single source and relates to job postings extant on March 14, 2017. No assumption should be made for past or future data science skills or any other conclusion we might end up for this project. A different sample from the same source will likely produce different results.
+
+## Collection
+
+We were unable to find data in a table, csv file or other structured format. In addition, the Paysa proprietors declined our request to provide sample data for the project. We attempted to scrape the data, but Paysa has designed its web pages to prevent scraping. Because we did not require a huge sample of data for this process, we cut and pasted Paysa data into a text file that we then cleaned, organized and refined. We imported that raw text data into a SQL database for permanent storage, then exported it to R to conduct our analysys. The import-export process also was conducted via R. In total, we collected 390 job postings that listed 95 overall skills. Because some of those skills were the same but named differently, we collapsed the list into 35 unique skills and a miscellaneous group of skills that appeared fewer than 10 times in the data.
+
+We named our raw text file **paysa.txt** and uploaded it to **GitHub**.
+
+## Data Preparation
+
+Once we had our **paysa.txt** file with our desired information, we proceeded to extract valuable information from it and created a data frame. The code was shared among us to continue further cleaning and tidying.
+
+### Import
+
+This code reads our raw scraped text into R from GitHub.
+
+```{r Dilip_Webscrape, warning=FALSE, error=FALSE, message=FALSE}
+
+url <- "https://raw.githubusercontent.com/dilipganesan/D607-Group-Project/patch-1/scripts/paysa.txt"
+
+mystring = read_file(url, locale=default_locale())
+
+```
+
+
+Sample of the input file.
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+writeLines(str_sub(mystring, 1, 800))
+
+```
+
+### From text file to data frame
+
+This code uses string handling to separate the text into an initial set of columns.
+
+```{r Dilip_DataFrame, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+applyposition=str_extract_all(mystring,".*?APPLY NOW\\n(.*?).*",simplify = TRUE)
+applyposition=as.character(t(applyposition))
+applyposition=data.frame(applyposition, stringsAsFactors = FALSE)
+
+Base=str_extract_all(mystring,".*?Base Salary(.*?).*",simplify = TRUE)
+Base=as.character(t(Base))
+Base=data.frame(Base, stringsAsFactors = FALSE)
+
+Annual=str_extract_all(mystring,".*?Annual Bonus(.*?).*",simplify = TRUE)
+Annual=as.character(t(Annual))
+Annual=data.frame(Annual, stringsAsFactors = FALSE)
+
+signing=str_extract_all(mystring,".*?Signing Bonus(.*?).*",simplify = TRUE)
+signing=as.character(t(signing))
+signing=data.frame(signing, stringsAsFactors = FALSE)
+
+skillset=str_extract_all(mystring,".*?You can learn valuable new skills like:(.*?).*",simplify = TRUE)
+skillset=as.character(t(skillset))
+skillset=data.frame(skillset, stringsAsFactors = FALSE)
+
+expected=str_extract_all(mystring,".*?EXPECTED\\n(.*?).*",simplify = TRUE)
+expected=as.character(t(expected))
+expected=data.frame(expected, stringsAsFactors = FALSE)
+
+location=str_extract_all(mystring,"Jobs in(.*?).*",simplify = TRUE)
+location=as.character(t(location))
+location=data.frame(location, stringsAsFactors = FALSE)
+
+ID <- 1:nrow(applyposition)
+
+dilips.data.frame <- data.frame(ID, applyposition, Base, Annual, signing, expected, skillset, location)
+
+row.names(dilips.data.frame) <- NULL
+
+# Assigning previous data frame
+my.data <- dilips.data.frame
+
+```
+
+
+Sample of the initial data frame.
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+kable(head(dilips.data.frame), format = "html", rnames=FALSE)
+
+```
+
+## MySQL
+
+Next, we stored this initial data set on a remote MySQL server. We provided clear instructions for all team members about how to read tables into R. 
+
+The remote server setup is at **MySQL URL** mydvtech.com. We chose a commercial site because in our day-to-day work we will be reading and storing company data in company portals. This was good practice or all. Step-by-step instructions for connecting using MySQL server and cPanel were created in a manual distributed to the team.
+
+http://rpubs.com/dvillalobos/confMySQLcPanel
+
+
+```{r Duubar_MySQL_Setup, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE, results='hide'}
+### MySQL connection setup
+# Read password and user name from remote location in order to establish connection to MySQL
+
+url <- "http://mydvtech.com/libraries/mysql.csv"
+MySQLConnect <- read.csv(url, header = FALSE, sep = ",", stringsAsFactors=FALSE)
+
+# Remote access definitions
+myLocalPassword <- MySQLConnect$V1
+myLocalUser <- MySQLConnect$V2
+myLocalHost <- 'mydvtech.com'
+myLocalMySQLSchema <- 'mydvtech_cuny'
+myLocalTableName <- 'tbl_paysatxt'
+
+```
+
+### Writing data into MySQL
+
+This code connects to our remote MySQL server and writes a data frame into a table.
+
+
+```{r Duubar_MySQL_Write, warning=FALSE, error=FALSE, message=FALSE, results='hide'}
+
+writeMySQLTable <- function(my.data = NULL, myLocalTableName = NULL){
+  
+  # Creating a schema if it doesn't exist by employing RMySQL() in R
+  
+  mydbconnection <- dbConnect(MySQL(), 
+                  user = myLocalUser,
+                  password = myLocalPassword,
+                  host = myLocalHost)
+  
+  MySQLcode <- paste0("CREATE SCHEMA IF NOT EXISTS ",myLocalMySQLSchema,";",sep="")
+  dbSendQuery(mydbconnection, MySQLcode)
+
+  # Write our data frame into MySQL
+  mydbconnection <- dbConnect(MySQL(), 
+                  user = myLocalUser,
+                  password = myLocalPassword,
+                  host = myLocalHost,
+                  dbname = myLocalMySQLSchema)
+  
+  myLocalTableName <- tolower(myLocalTableName)
+  MySQLcode <- paste0("DROP TABLE IF EXISTS ",myLocalTableName,";",sep="")
+  
+  dbSendQuery(mydbconnection, MySQLcode)
+  dbWriteTable(mydbconnection, name= myLocalTableName , value= my.data) 
+
+  # Closing connection with local Schema
+  dbDisconnect(mydbconnection)
+
+  # Close all other open connections we might have
+  lapply( dbListConnections( dbDriver( drv = "MySQL")), dbDisconnect)
+}
+
+```
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE, results='hide'}
+
+writeMySQLTable(my.data, 'tbl_paysatxt')
+
+```
+
+
+### Reading data from MySQL
+
+For analysis and testing, we were encouraged to read from our MySQL instead of GitHub (our backup plan is we had problems with MySQL). One advantage of using a remote MySQL is the speed in terms of reading and transfering data; we noticed an incredible amount of resources employed when reading from our GitHub repository versus MySQL.
+
+The following code connects to MySQL server and read the data stored into a table in a data frame into R.
+
+
+```{r Duubar_MySQL_Read, warning=FALSE, error=FALSE, message=FALSE, results='hide'}
+
+readMySQLTable <- function(myLocalTableName = NULL){
+  
+  # Connecting to a schema by employing RMySQL() in R
+  mydbconnection <- dbConnect(MySQL(), 
+                  user = myLocalUser,
+                  password = myLocalPassword,
+                  host = myLocalHost,
+                  dbname = myLocalMySQLSchema)
+
+  # Check to see if our table exists? and read our data
+  myLocalTableName <- tolower(myLocalTableName)
+  if (dbExistsTable(mydbconnection, name = myLocalTableName)  == TRUE){
+    slookup <- dbReadTable(mydbconnection, name = myLocalTableName)
+  }
+
+  # Closing connection with local Schema
+  dbDisconnect(mydbconnection)
+
+  #To close all open connections
+  lapply( dbListConnections( dbDriver( drv = "MySQL")), dbDisconnect)
+  
+  return(slookup)
+}
+```
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE, results='hide'}
+
+my.data <- readMySQLTable('tbl_paysatxt')
+
+```
+
+## Tidying and transformation
+
+We divided our tidying and transformation into several tasks as follows..
+
+```{r Ambra_Expressions, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE, results='hide'}
+
+skillsetdf<- my.data
+
+# Working with Skillset column by removing extra text
+skillsetdf[,7]<- sapply (skillsetdf[,7], function(x) str_trim(str_replace_all(x, "(^.*:)|(and more)|[[.]]$", "")))
+
+# Break down skillset into multiple columns
+maxcol<- max(sapply(strsplit(as.character(skillsetdf$skillset),','),length))
+skillsetdf<- skillsetdf %>%  separate(skillset,paste0("Skill",1:maxcol), sep=",")
+
+# Clean up salary and bonus columns 
+extractsalary<- function(x) {
+str_extract_all(strsplit(x, "[$]"), "[[:digit:]]*K")}
+
+for (i in 1:nrow(skillsetdf)){
+        skillsetdf$Base[i]<-extractsalary(skillsetdf$Base[[i]])
+        skillsetdf$Annual[i]<- extractsalary(skillsetdf$Annual[[i]])
+        skillsetdf$signing[i]<- extractsalary(skillsetdf$signing[[i]])
+        skillsetdf$expected[i]<- extractsalary(skillsetdf$expected[[i]])
+}
+
+# Clean up position
+skillsetdf[,2]<- str_trim(str_replace_all(skillsetdf[,2], "APPLY NOW\n",""))
+
+# Clean up location column
+skillsetdf[,ncol(skillsetdf)]<- sapply (skillsetdf[,ncol(skillsetdf)], function(x) str_trim(str_replace_all(x, "Jobs in", "")))
+
+```
+
+New cleaned table results.
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+kable(head(skillsetdf), format = "html", rnames=FALSE)
+
+```
+
+Continuing with our clean up, we created new variable names, fixed dollar values and separated city and state.
+
+```{r Kyle_expressions, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE, results='hide'}
+
+kyle_df <- skillsetdf
+
+# Normalize column names
+kyle_df <- kyle_df %>% 
+  clean_names() %>% 
+  rename(position = applyposition, 
+         `Base Salary` = base, 
+         `Annual Salary` = annual, 
+         `Signing Salary` = signing,
+         `Expected Salary` = expected
+         )
+
+#tidy & create position & company columns
+kyle_df <- separate(kyle_df, position, c("position", "company"), sep = " at ")
+kyle_df <- separate(kyle_df, company, c("company"), sep = " in ")
+
+# clean up the dollar variables
+clean_dollars <- function(strings){
+  strings %>% 
+    str_replace("K", "000") %>%
+    str_replace("character(0)", "") %>% 
+    as.numeric() %>%
+    return()
+}
+
+kyle_df <- kyle_df %>% 
+  mutate(
+    `Base Salary`= clean_dollars(`Base Salary`),
+    `Annual Salary` = clean_dollars(`Annual Salary`),
+    `Signing Salary` = clean_dollars(`Signing Salary`),
+    `Expected Salary` = clean_dollars(`Expected Salary`)
+  )
+
+# Gather the skills into one column & clean them
+kyle_df <- kyle_df %>% 
+  gather(skill_num, skill, skill1:skill6) %>% 
+  filter(!is.na(skill)) %>% 
+  select(-skill_num) %>% 
+  mutate(skill = str_replace(skill,"(.+like: | and more.|and )", "")) %>% 
+  mutate(skill = str_replace(skill,"\\.", "")) 
+
+#separate location into city and state
+kyle_df <- kyle_df %>% 
+  separate(location, c("city", "state"), sep = ", ") %>% 
+  mutate(state = ifelse(city == "Palo Alto","CA",state))
+
+# Keep skills into one individual data frame
+skills_only_df <- kyle_df
+
+# Obtaining the number of skills
+nskills <- dim(kyle_df)[1]
+
+# Creating one single column for Salary
+kyle_df <- kyle_df %>% gather("Type","Salary", `Base Salary`:`Expected Salary`)
+kyle_df$Salary <- format(kyle_df$Salary, scientific=FALSE)
+
+# Defining some friendly names
+
+names(kyle_df) <- c("ID","Position","Company","City","State","Skills","Type","Salary")
+
+```
+
+## Tidy table
+
+Below is our tidy table with a total of `r nskills` skills. (In a subsequent step, we collapse repetitive skills (i.e., "C" and "C++".)
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+my.skills.data <- kyle_df
+
+kable(head(my.skills.data), format = "html", rnames=FALSE)
+
+```
+
+# Analysis
+
+## Skills
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+# To standarize reporting
+top <- 10
+bottom <- 10
+
+```
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+skills_only_df$skill <- trimws(skills_only_df$skill)
+unique_skills <- data.frame(unique(skills_only_df$skill), stringsAsFactors = FALSE)
+nUnique_skills <- dim(unique_skills)[1]
+
+```
+
+From our gathered data we have a total of `r nUnique_skills` skills.
+
+```{r,  echo=FALSE, warning=FALSE, error=FALSE, message=FALSE }
+
+# Procedure to Find Group Values for the skills
+group_skills <- skills_only_df %>% count(skill)
+total_n_skills <- sum(group_skills$n)
+group_skills$Percent <- paste(round((group_skills$n / total_n_skills)*100,2),"%")
+group_skills <- group_skills %>% arrange(desc(n))
+group_skills$Rank <- round(rank(-group_skills$n),0)
+names(group_skills) <- c("Skills","Count", "Percentage", "Rank")
+
+```
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+kable(group_skills, format = "html", rnames=FALSE, caption = "Table: Data Science Frequency Skills Ranked")
+
+```
+
+Top `r top` most desired skills by employers, by count of raw skill names.
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+subset_SkillsTop10 <- subset(group_skills, Rank <= top)
+subset_SkillsTop6 <- subset(group_skills, Rank <= 6)
+p <- plot_ly(data = subset_SkillsTop10, x = ~Count, y = ~Skills, text = ~paste("Percentage:", Percentage), type = 'bar',  orientation = 'h') %>%
+  layout(xaxis = list(title = "Frequency of desired Skills by employers"),
+         yaxis = list(title = ""),
+         margin = list(b = 100, l = 120, r = 10)) %>%
+  layout(showlegend = FALSE, 
+         title = "",
+         autosize = F, width = 750, height = 500
+         )
+
+#chart_link = plotly_POST(p, filename="top10_desired_skills")
+#chart_link
+
+ggplotly(p)
+
+```
+
+
+
+## Compensation (Exploratory Analysis)
+
+The Paysa data lists Base Salary, Annual Bonus, Signing Bonus and a total called  Expected Salary, providing a way to another way to measure value beyond raw counts.
+
+**Tree Analysis**
+
+```{r Raghu_Analysis, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+my.skills.data$Salary <- as.numeric(my.skills.data$Salary)
+my.skills.data$Skills <- trimws(my.skills.data$Skills)
+raghu.data.analysis <- my.skills.data
+
+```
+
+Another way of Analysing the above data is by performing a tree analysis. This tree shows Total Salary for jobs associated with Machine Learning skills in Washington and California.
+
+Following are the highest-paid jobs in the data.
+
+```{r Raghu_Analysis0, eval=FALSE, results='hide', echo=FALSE, warning=FALSE, error=FALSE, cache=FALSE, message=FALSE}
+
+df1 <- filter(subset_SkillsTop10, Rank == 1)
+
+df <- filter(
+             my.skills.data,
+             Skills == df1$Skills,
+             Salary > 250000
+            )
+
+df$Skills <- str_trim(df$Skills)
+
+df$pathString <- paste("Top paid skills", 
+                            df$Skills, 
+                            df$Type,
+                            df$Salary,
+                            df$State,
+                            df$Company,
+                            sep = "/")
+
+pop <- as.Node(df)
+p <- Prune(pop, pruneFun = function(x) !x$isLeaf)
+SetGraphStyle(pop, rankdir = "TB")
+SetEdgeStyle(pop, arrowhead = "vee", color = "grey35", penwidth = 5 )
+SetNodeStyle(pop, style = "filled,rounded", shape = "box", fillcolor = "GreenYellow", fontname = "helvetica", tooltip = GetDefaultTooltip)
+
+p <- plot(pop, quartz(width=1000, height=300), cex =10)
+p
+
+```
+
+![](C:/Users/mydvtech/Documents/GitHub/MSDA/Spring-2017/607/Projects/Project3/Team3Project3Final/TopPaidJobsSalaryTree.png)
+
+
+### Total Salary
+
+```{r Raghu_Analysis1, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+g1 <- subset(raghu.data.analysis, select=c(-ID, -Skills), Type == "Expected Salary")
+g1 <- unique(g1)
+g1$Rank <- round(rank(-g1$Salary),0)
+g1 <- g1 %>% arrange(Rank)
+g1$Rank <- 1:dim(g1)[1]
+g1 <- head(subset(g1, Rank <= top), top)
+g1$Company[is.na(g1$Company)] <- "Unknown"
+
+```
+
+**Table**
+
+```{r Raghu_AnalysisT1, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+kable(g1, format = "html", caption = paste("Table: Companies and job offerings with the top ", top, " Total Salaries"))
+
+```
+
+**Chart**
+
+```{r Raghu_AnalysisC1, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+p <- plot_ly(data = g1, x = ~paste(Company, "#", Rank), y = ~Salary, text = ~paste("Position:", Position), type = 'bar') %>%
+  layout(xaxis = list(title = ""),
+         yaxis = list(title = "Salary"),
+         margin = list(b = 150, l = 50, r = 70)) %>%
+  layout(showlegend = FALSE, 
+         title = paste("Top ", top, " Offered Total Salaries by Employers"), 
+         autosize = F, width = 750, height = 500
+         )
+
+ggplotly(p)
+
+```
+
+**Top paid skills**
+
+```{r Raghu_AnalysisP1, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+topPaidSkills_ExpectedSalary <- filter(g1, Rank ==1)
+topPaidSkills_ExpectedSalary1 <- filter(
+                                        my.skills.data,
+                                        Position == topPaidSkills_ExpectedSalary$Position &
+                                        Company == topPaidSkills_ExpectedSalary$Company & 
+                                        City == topPaidSkills_ExpectedSalary$City &
+                                        State == topPaidSkills_ExpectedSalary$State &
+                                        Type == topPaidSkills_ExpectedSalary$Type &
+                                        Salary == topPaidSkills_ExpectedSalary$Salary
+                                        )
+
+topPaidSkills_ExpectedSalary1 <- subset(topPaidSkills_ExpectedSalary1, select = c(Skills))
+names(topPaidSkills_ExpectedSalary1) <- "Top Paid Skills"
+
+subset_SkillsTop6 <- subset(group_skills, Rank <= dim(topPaidSkills_ExpectedSalary1)[1])
+
+topPaidSkills_ExpectedSalary1$`Listed in top most desired skills by employers` <- topPaidSkills_ExpectedSalary1$`Top Paid Skills`  %in% subset_SkillsTop6$Skills
+
+```
+
+The below combination of desired skills by employers will generate the top Total Salary of \$`r format(topPaidSkills_ExpectedSalary$Salary[1], scientific=FALSE)`. 
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+kable(topPaidSkills_ExpectedSalary1, format = "html", caption = paste("Table: Top paid skills by top paid Total Salaries"))
+
+```
+
+The below tree will present the top two highest-paid salaries and respective skills.
+
+```{r Raghu_Tree1, eval=FALSE, results='hide', echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+#3**Tree Analysis**
+
+# Another way of Analysing the above data is by performing a tree analysis.
+
+df1 <- filter(g1, Rank == 1)
+df2 <- filter(g1, Rank == 2)
+df3 <- filter(g1, Rank == 3)
+
+df1 <- filter(
+             my.skills.data,
+             Position == df1$Position &
+             Company == df1$Company & 
+             City == df1$City &
+             State == df1$State &
+             Type == df1$Type &
+             Salary == df1$Salary
+            )
+
+df2 <- filter(
+             my.skills.data,
+             Position == df2$Position &
+             Company == df2$Company & 
+             City == df2$City &
+             State == df2$State &
+             Type == df2$Type &
+             Salary == df2$Salary
+            )
+
+df3 <- filter(
+             my.skills.data,
+             Position == df3$Position &
+             Company == df3$Company & 
+             City == df3$City &
+             State == df3$State &
+             Type == df3$Type &
+             Salary == df3$Salary
+            )
+
+df <- bind_rows(df1,df2)
+df$Skills <- str_trim(df$Skills)
+
+df$pathString <- paste("Top paid skills", 
+                            df$Salary, 
+                            df$Skills,
+                            sep = "/")
+
+pop <- as.Node(df)
+p <- Prune(pop, pruneFun = function(x) !x$isLeaf || x$Type == "Expected Salary")
+SetGraphStyle(pop, rankdir = "TB")
+SetEdgeStyle(pop, arrowhead = "vee", color = "grey35", penwidth = 5 )
+SetNodeStyle(pop, style = "filled,rounded", shape = "box", fillcolor = "GreenYellow", 
+            fontname = "helvetica", tooltip = GetDefaultTooltip)
+
+p <- plot(pop, quartz(width=800, height=300), cex =10)
+p
+
+```
+
+![](C:/Users/mydvtech/Documents/GitHub/MSDA/Spring-2017/607/Projects/Project3/Team3Project3Final/ExpectedSalaryTree.png)
+
+### Signing Bonus
+
+```{r Raghu_Analysis2, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+g1 <- subset(raghu.data.analysis, select=c(-ID, -Skills), Type == "Signing Salary")
+g1 <- unique(g1)
+g1$Rank <- round(rank(-g1$Salary),0)
+g1 <- g1 %>% arrange(Rank)
+g1$Rank <- 1:dim(g1)[1]
+g1 <- head(subset(g1, Rank <= top), top)
+g1$Company[is.na(g1$Company)] <- "Unknown"
+
+```
+
+**Table**
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+kable(g1, format = "html", caption = paste("Table: Companies and job offerings with the top ", top, " Signing Bonus"))
+
+```
+
+**Chart**
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+p <- plot_ly(data = g1, x = ~paste(Company, "#", Rank), y = ~Salary, text = ~paste("Position:", Position), type = 'bar') %>%
+  layout(xaxis = list(title = ""),
+         yaxis = list(title = "Salary"),
+         margin = list(b = 150, l = 50, r = 70)) %>%
+  layout(showlegend = FALSE, 
+         title = paste("Top ", top, " Offered Signing Bonus by Employers"), 
+         autosize = F, width = 750, height = 500
+         )
+
+ggplotly(p)
+
+```
+
+**Top paid skills**
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+topPaidSkills_SigningSalary <- filter(g1, Rank ==1)
+topPaidSkills_SigningSalary1 <- filter(
+                                        my.skills.data,
+                                        Position == topPaidSkills_SigningSalary$Position &
+                                        Company == topPaidSkills_SigningSalary$Company & 
+                                        City == topPaidSkills_SigningSalary$City &
+                                        State == topPaidSkills_SigningSalary$State &
+                                        Type == topPaidSkills_SigningSalary$Type &
+                                        Salary == topPaidSkills_SigningSalary$Salary
+                                        )
+
+topPaidSkills_SigningSalary1 <- subset(topPaidSkills_SigningSalary1, select = c(Skills))
+names(topPaidSkills_SigningSalary1) <- "Top Paid Skills"
+
+subset_SkillsTop6 <- subset(group_skills, Rank <= dim(topPaidSkills_SigningSalary1)[1])
+
+topPaidSkills_SigningSalary1$`Listed in top most desired skills by employers` <- topPaidSkills_SigningSalary1$`Top Paid Skills`  %in% subset_SkillsTop6$Skills
+
+```
+
+The below combination of desired skills by employers will generate the top Signing Bonus of \$`r format(topPaidSkills_SigningSalary$Salary[1], scientific=FALSE)`.  
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+kable(topPaidSkills_SigningSalary1, format = "html", caption = paste("Table: Top paid skills by top paid Signing Bonus"))
+
+```
+
+The below tree will present the top two highest-paid signing bonus and respective skills.
+
+```{r, eval=FALSE, results='hide', echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+# **Tree Analysis**
+
+# Another way of Analysing the above data is by performing a tree analysis.
+
+df1 <- filter(g1, Rank == 1)
+df2 <- filter(g1, Rank == 2)
+df3 <- filter(g1, Rank == 3)
+
+df1 <- filter(
+             my.skills.data,
+             Position == df1$Position &
+             Company == df1$Company & 
+             City == df1$City &
+             State == df1$State &
+             Type == df1$Type &
+             Salary == df1$Salary
+            )
+
+df2 <- filter(
+             my.skills.data,
+             Position == df2$Position &
+             Company == df2$Company & 
+             City == df2$City &
+             State == df2$State &
+             Type == df2$Type &
+             Salary == df2$Salary
+            )
+
+df3 <- filter(
+             my.skills.data,
+             Position == df3$Position &
+             Company == df3$Company & 
+             City == df3$City &
+             State == df3$State &
+             Type == df3$Type &
+             Salary == df3$Salary
+            )
+
+df <- bind_rows(df1,df2)
+df$Skills <- str_trim(df$Skills)
+
+df$pathString <- paste("Top paid skills", 
+                            df$Salary, 
+                            df$Skills,
+                            sep = "/")
+
+pop <- as.Node(df)
+p <- Prune(pop, pruneFun = function(x) !x$isLeaf || x$Type == "Signing Salary")
+SetGraphStyle(pop, rankdir = "TB")
+SetEdgeStyle(pop, arrowhead = "vee", color = "grey35", penwidth = 5 )
+SetNodeStyle(pop, style = "filled,rounded", shape = "box", fillcolor = "GreenYellow", 
+            fontname = "helvetica", tooltip = GetDefaultTooltip)
+
+p <- plot(pop, quartz(width=800, height=300), cex =10)
+p
+
+```
+
+![](C:/Users/mydvtech/Documents/GitHub/MSDA/Spring-2017/607/Projects/Project3/Team3Project3Final/SigningSalaryTree.png)
+
+### Annual Bonus
+
+```{r Raghu_Analysis3, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+g1 <- subset(raghu.data.analysis, select=c(-ID, -Skills), Type == "Annual Salary")
+g1 <- unique(g1)
+g1$Rank <- round(rank(-g1$Salary),0)
+g1 <- g1 %>% arrange(Rank)
+g1$Rank <- 1:dim(g1)[1]
+g1 <- head(subset(g1, Rank <= top), top)
+g1$Company[is.na(g1$Company)] <- "Unknown"
+
+```
+
+**Table**
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+kable(g1, format = "html", caption = paste("Table: Companies and job offerings with the top ", top, " Annual Bonus"))
+
+```
+
+**Chart**
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+p <- plot_ly(data = g1, x = ~paste(Company, "#", Rank), y = ~Salary, text = ~paste("Position:", Position), type = 'bar') %>%
+  layout(xaxis = list(title = ""),
+         yaxis = list(title = "Salary"),
+         margin = list(b = 150, l = 50, r = 70)) %>%
+  layout(showlegend = FALSE, 
+         title = paste("Top ", top, " Offered Annual Bonus by Employers"), 
+         autosize = F, width = 750, height = 500
+         )
+
+ggplotly(p)
+
+```
+
+**Top paid skills**
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+topPaidSkills_AnnualSalary <- filter(g1, Rank ==1)
+topPaidSkills_AnnualSalary1 <- filter(
+                                        my.skills.data,
+                                        Position == topPaidSkills_AnnualSalary$Position &
+                                        Company == topPaidSkills_AnnualSalary$Company & 
+                                        City == topPaidSkills_AnnualSalary$City &
+                                        State == topPaidSkills_AnnualSalary$State &
+                                        Type == topPaidSkills_AnnualSalary$Type &
+                                        Salary == topPaidSkills_AnnualSalary$Salary
+                                        )
+topPaidSkills_AnnualSalary1 <- subset(topPaidSkills_AnnualSalary1, select = c(Skills))
+names(topPaidSkills_AnnualSalary1) <- "Top Paid Skills"
+
+subset_SkillsTop6 <- subset(group_skills, Rank <= dim(topPaidSkills_AnnualSalary1)[1])
+
+topPaidSkills_AnnualSalary1$`Listed in top most desired skills by employers` <- topPaidSkills_AnnualSalary1$`Top Paid Skills`  %in% subset_SkillsTop6$Skills
+
+```
+
+The below combination of desired skills by employers will generate the top Annual Bonus of \$`r format(topPaidSkills_AnnualSalary$Salary[1], scientific=FALSE)`.  
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+kable(topPaidSkills_AnnualSalary1, format = "html", caption = paste("Table: Top paid skills by top paid Annual Bonus"))
+
+```
+
+The below tree will present the top two highest paid salaries and respective skills.
+
+```{r, eval=FALSE, results='hide', echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+# **Tree Analysis**
+
+# Another way of Analysing the above data is by performing a tree analysis.
+
+df1 <- filter(g1, Rank == 1)
+df2 <- filter(g1, Rank == 2)
+df3 <- filter(g1, Rank == 3)
+
+df1 <- filter(
+             my.skills.data,
+             Position == df1$Position &
+             Company == df1$Company & 
+             City == df1$City &
+             State == df1$State &
+             Type == df1$Type &
+             Salary == df1$Salary
+            )
+
+df2 <- filter(
+             my.skills.data,
+             Position == df2$Position &
+             Company == df2$Company & 
+             City == df2$City &
+             State == df2$State &
+             Type == df2$Type &
+             Salary == df2$Salary
+            )
+
+df3 <- filter(
+             my.skills.data,
+             Position == df3$Position &
+             Company == df3$Company & 
+             City == df3$City &
+             State == df3$State &
+             Type == df3$Type &
+             Salary == df3$Salary
+            )
+
+df <- bind_rows(df1,df2)
+df$Skills <- str_trim(df$Skills)
+
+df$pathString <- paste("Top paid skills", 
+                            df$Salary, 
+                            df$Skills,
+                            sep = "/")
+pop <- as.Node(df)
+p <- Prune(pop, pruneFun = function(x) !x$isLeaf || x$Type == "Annual Salary")
+SetGraphStyle(pop, rankdir = "TB")
+SetEdgeStyle(pop, arrowhead = "vee", color = "grey35", penwidth = 5 )
+SetNodeStyle(pop, style = "filled,rounded", shape = "box", fillcolor = "GreenYellow", 
+            fontname = "helvetica", tooltip = GetDefaultTooltip)
+
+p <- plot(pop, quartz(width=800, height=300), cex =10)
+p
+
+```
+
+![](C:/Users/mydvtech/Documents/GitHub/MSDA/Spring-2017/607/Projects/Project3/Team3Project3Final/AnnualSalaryTree.png)
+
+### Base Salary
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+g1 <- subset(raghu.data.analysis, select=c(-ID, -Skills), Type == "Base Salary")
+g1 <- unique(g1)
+g1$Rank <- round(rank(-g1$Salary),0)
+g1 <- g1 %>% arrange(Rank)
+g1$Rank <- 1:dim(g1)[1]
+g1 <- head(subset(g1, Rank <= top), top)
+g1$Company[is.na(g1$Company)] <- "Unknown"
+
+```
+
+**Table**
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+kable(g1, format = "html", caption = paste("Table: Companies and job offerings with the top ", top, " Base Salaries"))
+
+```
+
+**Chart**
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+p <- plot_ly(data = g1, x = ~paste(Company, "#", Rank), y = ~Salary, text = ~paste("Position:", Position), type = 'bar') %>%
+  layout(xaxis = list(title = ""),
+         yaxis = list(title = "Salary"),
+         margin = list(b = 150, l = 50, r = 70)) %>%
+  layout(showlegend = FALSE, 
+         title = paste("Top ", top, " Offered Annual Salaries by Employers"), 
+         autosize = F, width = 750, height = 500
+         )
+
+ggplotly(p)
+
+```
+
+**Top paid skills**
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+topPaidSkills_BaseSalary <- filter(g1, Rank ==1)
+topPaidSkills_BaseSalary1 <- filter(
+                                        my.skills.data,
+                                        Position == topPaidSkills_BaseSalary$Position &
+                                        Company == topPaidSkills_BaseSalary$Company & 
+                                        City == topPaidSkills_BaseSalary$City &
+                                        State == topPaidSkills_BaseSalary$State &
+                                        Type == topPaidSkills_BaseSalary$Type &
+                                        Salary == topPaidSkills_BaseSalary$Salary
+                                        )
+topPaidSkills_BaseSalary1 <- subset(topPaidSkills_BaseSalary1, select = c(Skills))
+names(topPaidSkills_BaseSalary1) <- "Top Paid Skills"
+
+subset_SkillsTop6 <- subset(group_skills, Rank <= dim(topPaidSkills_BaseSalary1)[1])
+
+topPaidSkills_BaseSalary1$`Listed in top most desired skills by employers` <- topPaidSkills_BaseSalary1$`Top Paid Skills`  %in% subset_SkillsTop6$Skills
+
+```
+
+The below combination of desired skills by employers will generate the top Base Salary of \$`r format(topPaidSkills_BaseSalary$Salary[1], scientific=FALSE)`.  
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+kable(topPaidSkills_BaseSalary1, format = "html", caption = paste("Table: Top paid skills by top paid Base Salaries"))
+
+```
+
+The below tree will present the top two highest-paid base salaries and respective skills.
+
+```{r, eval=FALSE, results='hide', echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+#**Tree Analysis**
+
+#Another way of Analysing the above data is by performing a tree analysis.
+
+df1 <- filter(g1, Rank == 1)
+df2 <- filter(g1, Rank == 2)
+df3 <- filter(g1, Rank == 3)
+
+df1 <- filter(
+             my.skills.data,
+             Position == df1$Position &
+             Company == df1$Company & 
+             City == df1$City &
+             State == df1$State &
+             Type == df1$Type &
+             Salary == df1$Salary
+            )
+
+df2 <- filter(
+             my.skills.data,
+             Position == df2$Position &
+             Company == df2$Company & 
+             City == df2$City &
+             State == df2$State &
+             Type == df2$Type &
+             Salary == df2$Salary
+            )
+
+df3 <- filter(
+             my.skills.data,
+             Position == df3$Position &
+             Company == df3$Company & 
+             City == df3$City &
+             State == df3$State &
+             Type == df3$Type &
+             Salary == df3$Salary
+            )
+
+df <- bind_rows(df1,df2)
+df$Skills <- str_trim(df$Skills)
+
+df$pathString <- paste("Top paid skills", 
+                            df$Salary, 
+                            df$Skills,
+                            sep = "/")
+pop <- as.Node(df)
+p <- Prune(pop, pruneFun = function(x) !x$isLeaf || x$Type == "Base Salary")
+SetGraphStyle(pop, rankdir = "TB")
+SetEdgeStyle(pop, arrowhead = "vee", color = "grey35", penwidth = 5 )
+SetNodeStyle(pop, style = "filled,rounded", shape = "box", fillcolor = "GreenYellow", 
+            fontname = "helvetica", tooltip = GetDefaultTooltip)
+
+p <- plot(pop, quartz(width=800, height=300), cex =10)
+p
+
+```
+
+![](C:/Users/mydvtech/Documents/GitHub/MSDA/Spring-2017/607/Projects/Project3/Team3Project3Final/BaseSalaryTree.png)
+
+### Combined Table of Top paid Skills
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+topPaidCombined <- data.frame(Rank = subset_SkillsTop10$Rank, Skills = subset_SkillsTop10$Skills)
+
+# Column Names for combined table of most desired skills with higher income
+names(topPaidSkills_ExpectedSalary1) <- c("Skills", "Total Salary")
+names(topPaidSkills_SigningSalary1) <- c("Skills", "Signing Bonus")
+names(topPaidSkills_AnnualSalary1) <- c("Skills", "Annual Bonus")
+names(topPaidSkills_BaseSalary1) <- c("Skills", "Base Salary")
+
+topPaidCombined$Skills <- trimws(topPaidCombined$Skills)
+topPaidSkills_ExpectedSalary1$Skills <- trimws(topPaidSkills_ExpectedSalary1$Skills)
+topPaidSkills_SigningSalary1$Skills <- trimws(topPaidSkills_SigningSalary1$Skills)
+topPaidSkills_AnnualSalary1$Skills <- trimws(topPaidSkills_AnnualSalary1$Skills)
+topPaidSkills_BaseSalary1$Skills <- trimws(topPaidSkills_BaseSalary1$Skills)
+
+topPaidCombined <- left_join(topPaidCombined, topPaidSkills_ExpectedSalary1, by = "Skills")
+topPaidCombined <- left_join(topPaidCombined, topPaidSkills_SigningSalary1, by = "Skills")
+topPaidCombined <- left_join(topPaidCombined, topPaidSkills_AnnualSalary1, by = "Skills")
+topPaidCombined <- left_join(topPaidCombined, topPaidSkills_BaseSalary1, by = "Skills")
+
+topPaidCombined[is.na(topPaidCombined)] <- ""
+topPaidCombined[topPaidCombined == FALSE] <- ""
+
+```
+
+The table below displays which skills associate with the highest-paid compensation categories. For example, Data Science, Algorithms and Big Data are associated with the highest Expected (total) Salary. Skills in Machine Learning and Hadoop are associated with the highest Signing Bonuses.
+
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+kable(topPaidCombined, format = "html", caption = paste("Table: Top paid skills with high skills on demand"))
+
+```
+
+
+## Maps
+
+### Open Positions by State
+
+```{r Ambra_MapScript, eval=FALSE, results='hide', echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+###Creating two interactive maps: states by mean salary, state by number of jobs
+
+###Create df grouping by state- mutate count of jobs and mean salary
+
+my.skills.data.map1<- my.skills.data %>% group_by(State) %>% summarise (tot_positions= n_distinct(ID))
+
+my.skills.data.map1$hover <- with(my.skills.data.map1, paste(State, '<br>', "Tot open positions", tot_positions))
+# give state boundaries a white border
+l <- list(color = toRGB("white"), width = 2)
+# specify some map projection/options
+g <- list(
+  scope = 'usa',
+  projection = list(type = 'albers usa'),
+  showlakes = TRUE,
+  lakecolor = toRGB('white')
+)
+
+p <- plot_geo(my.skills.data.map1, locationmode = 'USA-states') %>%
+  add_trace(
+    z = ~tot_positions, text = ~hover, locations = ~State,
+    color = ~tot_positions, colors = 'Reds'
+  ) %>%
+  colorbar(title = "Num of positions") %>%
+  layout(
+    title = 'Open Data Scientist Positions by State<br>(Hover for breakdown)',
+    geo = g
+  )
+
+# Create a shareable link to chart
+
+Sys.setenv("plotly_username"="data607g3")
+Sys.setenv("plotly_api_key"="dDZhymyplVxhzUuXv2MX")
+chart_link = plotly_POST(p, filename="choropleth")
+chart_link
+
+```
+
+```{r Ambra_Map, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+url<-"https://plot.ly/~data607g3/0/open-data-scientist-positions-by-state-hover-for-breakdown.embed?width=800&height=800" 
+plotly_iframe <- paste("<center><iframe scrolling='no' seamless='seamless' style='border:none' src='", url, 
+    "/800/800' width='800' height='800'></iframe><center>", sep = "")
+
+```
+
+`r I(plotly_iframe)`
+
+### Open Positions by City
+
+```{r Dilip_MapScript, eval=FALSE, results='hide', echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+# City Mapping Starts
+
+if (!require("ggmap")) install.packages('ggmap')
+library(ggmap)
+
+my.skills.data.city<- my.skills.data %>% group_by(City) %>% summarise (tot_positions= n_distinct(ID))
+
+geocodes <- geocode(as.character(my.skills.data.city$City))
+my.skills.data.city <- data.frame(my.skills.data.city,geocodes)
+
+my.skills.data.city$hover <- with(my.skills.data.city, paste(City, '<br>', "Tot open positions", tot_positions))
+
+g <- list(
+ scope = 'usa',
+ projection = list(type = 'albers usa'),
+ showland = TRUE,
+ landcolor = toRGB("gray85"),
+ subunitwidth = 1,
+ countrywidth = 1,
+ subunitcolor = toRGB("white"),
+ countrycolor = toRGB("white")
+)
+
+p_city <- plot_geo(my.skills.data.city, locationmode = 'USA-states', sizes = c(1, 250)) %>%
+ add_markers(
+   x = ~lon, y = ~lat, size = ~tot_positions, color=~tot_positions, hoverinfo = "text",
+   text = ~paste(my.skills.data.city$City, '<br>', my.skills.data.city$tot_positions)
+ ) %>%
+ layout(title = 'Open Data Scientist Positions by City', geo = g)
+
+
+Sys.setenv("plotly_username"="data607g3")
+Sys.setenv("plotly_api_key"="dDZhymyplVxhzUuXv2MX")
+chart_link = plotly_POST(p_city, filename="choropleth_city")
+chart_link
+
+```
+
+
+```{r Dilip_Map, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+url<-"https://plot.ly/~data607g3/2/open-data-scientist-positions-by-city.embed?width=800&height=800" 
+plotly_iframe <- paste("<center><iframe scrolling='no' seamless='seamless' style='border:none' src='", url, 
+    "/800/800' width='800' height='800'></iframe><center>", sep = "")
+
+```
+
+`r I(plotly_iframe)`
+
+## Highest-Valued Skills Measured by Mean Compensation
+
+Some of the highest-valued skills are not the most common skills.  They include Strategy, Leadership, Management and Data Science, a catch-all. ETL -- for Extract, Transfer and Load -- is a critical area of data warehousing.
+
+This part of the analysis looks at the value of skills based on what employers pay rather the frequency of skills in a job posting. To do this, we compute a mean value for each skill across the database.
+
+For example, the job 'Principle Lead Data Scientist' at Akamai is associated with six skills: Hadoop, Data Mining, Machine Learning, Python, Matlab and Ruby. The total compensation this job is \$317,000. To value each job, we divide total compensation by 6 to get \$52,833. We do similar computation for skills in each job, then calculate the overall mean of those values across all jobs for each skill. We then plot those values to rank skills in descending order.
+
+
+```{r Toms_Analysis, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+# This reduces our skills further to eliminate duplication (i.e., C and C++),
+# then it creates a value for each individual skill in each job
+# by dividing the number of skills for each job
+# by the the total compensation (Expected Salary) for each job
+
+# grab the data before it's gathered by Kyle
+tom_df <- skills_only_df
+
+# clean up dirty variable
+tom_df$skill <- str_trim(tom_df$skill)
+
+# bring in skills lookup table with consolidated skills names in 'new_skill' var
+# I consolidated the skills in Excel so naming variations like 
+# "Algorithm" and "Algorithms" or "C" and "C++" have the same name
+# put "skills.lookup.csv" in your working directory
+#slookup <- read.csv("~/GitHub/MSDA/Spring-2017/607/Projects/Project3/Tom/skills_lookup.csv")
+slookup <- readMySQLTable("skills_lookup")
+# merge old skills, new skill names from the lookup table
+tom_df2 <- merge(tom_df, slookup, by.x = 'skill', by.y = 'old_skill', all.x = T)
+
+# count number of skills for each job so we can value each one
+skill_counts <- ungroup(tom_df2) %>%
+                  group_by(id) %>%
+                  summarise(Count = n())
+
+# put the new counts for each new_skill in the df
+tom_df2 <- merge(tom_df2, skill_counts, by.x='id', by.y='id')
+
+# get value for each skill in each job: Expected Salary/number of skills
+tom_df2$skill_val <- round((tom_df2[, 8]/tom_df2[, 13]), 2)
+
+
+# which skills have the highest mean value?
+mean_skills <- ungroup(tom_df2) %>%
+                  group_by(new_skill) %>%
+                  summarize(MeanVal = round(mean(skill_val), 2)) %>%
+                  arrange(desc(MeanVal))
+
+p <- ggplot(mean_skills, aes(x = reorder(new_skill, MeanVal), y = MeanVal, -value)) +
+              geom_bar(stat='identity') +
+              coord_flip() +
+              xlab("") + ylab("Mean Compensation Value ") +
+              theme_update(legend.position = "none") +
+              scale_y_continuous(labels = scales::dollar) +
+              theme_fivethirtyeight()
+
+# write files for MySQL
+a <- writeMySQLTable(mean_skills, 'tbl_mean_skills')
+
+a <- writeMySQLTable(skill_counts, 'tbl_skill_counts')
+```
+
+```{r Toms_plotAnalysis, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+ggplotly(p)
+
+```
+
+## Relative Value of Skills
+
+Using ANOVA, we can compute how much a particular skill adds or subtracts from the mean Expected Salary for Algorithms, the reference level, all other things equal.
+
+For example, the reference mean compensation for Algorithms is $30,323. Having ETL skills adds $9,283 to that mean; Matlab skills are worth $1,282 less.
+
+The chart summarizes the skill values relative to the Algorithm baseline.
+
+
+```{r, echo=F, warning=F, message=F}
+
+library(stats)
+
+# fit ANOVA
+fit <- lm(skill_val ~ new_skill, contrasts = "contr.sum", data = tom_df2)
+
+# get coefficients
+mycoefs <- data.frame(fit$coefficients)
+
+# fix the names
+skillnames <- str_replace_all(rownames(mycoefs), "new_skill", "")
+
+# add names to df
+mycoefs <- cbind(skillnames, mycoefs)
+
+# fix rounding
+mycoefs[,2] <- round(mycoefs[,2],0) 
+
+#add column names
+colnames(mycoefs) <- c("Skill", "Adjustment")
+
+# fix first value
+mycoefs$Skill <- as.character(mycoefs$Skill)
+mycoefs[1,1] <- "Algorithm (reference)"
+
+```
+
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+kable(mycoefs, row.names = FALSE, format = "html", caption = paste("Table: Expected Salary for Algorithms"))
+
+```
+
+The below chart, display a salary weight composition for each desired skills by employers.
+
+```{r Toms_Analysis2, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+# create a value for each individual skill in each job
+# by dividing the number of skills for each job
+# by the the total compensation (Expected Salary) for each job
+
+# grab the data
+tom_df <- kyle_df
+
+# clean up dirty variable
+tom_df$skill <- str_trim(tom_df$Skill)
+
+# prep skills for some classification clean-up
+#
+unique_skill <- ungroup(tom_df2) %>%
+                  group_by(str_trim(skill)) %>%
+                  summarize(Count = n()) %>%
+                  arrange(desc(Count))
+
+
+# SKIP THIS STEP, DONE OUTSIDE R IN OPEN REFINE
+# combines same skills that have differnet names,
+# puts skills with a count of < 10 in 'Misc' category
+# export to Open Refine
+# write.csv(unique_skill, "unique_skills.csv")
+
+# pick up here ...
+# bring skills back in after consolidating
+#slookup <- read.csv("skills_lookup.csv")
+slookup <- readMySQLTable("skills_lookup")
+
+# merge old skills, new skill names
+tom_df2 <- merge(tom_df2, slookup, by.x = 'skill', by.y = 'old_skill', all.x = T)
+
+# count skills for each job
+skill_counts <- ungroup(tom_df2) %>%
+                  group_by(new_skill.x) %>%
+                  summarise(Count = n())
+
+# get value for each skill in each job
+tom_df2$skill_val <- round((tom_df2[, 8]/tom_df2[, 11]), 2)
+
+# which skills have the highest mean value?
+# eliminate the miscellaneous skills
+mean_skills <- ungroup(tom_df2) %>%
+                  filter(new_skill.x != 'Misc') %>%
+                  group_by(new_skill.x) %>%
+                  summarize(MeanVal = round(mean(skill_val), 2)) %>%
+                  arrange(desc(MeanVal))
+
+# basic plot; can be imported to plotly or spruced up
+p <- ggplot(mean_skills, aes(x = reorder(new_skill.x, MeanVal), y = MeanVal, -value)) +
+  geom_bar(stat='identity') +
+  coord_flip() +
+  xlab("") + ylab("Mean Compensation Value ") +
+  theme_update(legend.position = "none") +
+  scale_y_continuous(labels = scales::dollar) +
+  theme_fivethirtyeight()
+
+```
+
+```{r Toms_plotAnalysis2, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+
+ggplotly(p)
+
+```
+
+# Conclusion
+
+We were asked to work as a team to answer the the question: What are the most valued data science skills? Our examination of compensation data for Data Science jobs on the Paysa website looked at "value" in as a function of the frequency of skills advertised and determined that skills such as Machine Learning, Big Data and Algorithms ranked in the top 10. In terms of mean compensation, top skills included expertise in Strategy, ETL, SQL and User Experience. There are many possible ways to value skills; our study suggests that more data and additional refinement of skills into appropriate categories would provide a more confident assessment of the most-valued skills. 
+
+Our experience also shows the benefits of working in a collaborative environment, where team members can readily learn from each other and contribute ideas, creating synergy and improving the results. Teams also benefit from strong leadership that guides while giving team members the opportunity to succeed and sometimes fail, but always reach for improvement and professional growth.
+
+
+
